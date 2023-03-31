@@ -1,0 +1,9 @@
+type request struct {
+	href *string
+	meth *string
+	qArg *map[string]string
+	hArg *map[string]string
+	dArg *map[string]string
+	uPrx *string
+	tOut *int8
+}
