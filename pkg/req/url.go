@@ -7,26 +7,19 @@ import (
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
 
-// Configure full
-// url by request params
-// Depend on request struct
-// and h is Href, q is Qarg fields
-func configURL(h *string, q *map[string]string) (string, error) {
+func (r *Request) setUpUrl() error {
 
-	if q == nil {
-		return *h, nil
+	if len(r.ArgQ) == 0 {
+		r.url = r.Href
 	} else {
-		if len(*q) == 0 {
-			return *h, nil
-		} else {
-			qVars := url.Values{}
-			for k, v := range *q {
-				qVars.Add(k, v)
-			}
-			hFull := fmt.Sprintf("%s?%s", *h, qVars.Encode())
-			return hFull, nil
+		qVar := url.Values{}
+		for k, v := range r.ArgQ {
+			qVar.Add(k, v)
 		}
+		r.url = fmt.Sprintf("%s?%s", r.Href, qVar.Encode())
 	}
+
+	return nil
 
 }
 
