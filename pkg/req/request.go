@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"strings"
 )
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
@@ -18,7 +19,7 @@ type Request struct {
 	PrxU string
 	Meth string
 	ArgH map[string]string
-	ArgD map[string]string
+	ArgD string
 	RnUa bool
 
 	//	calc params
@@ -38,10 +39,10 @@ type Request struct {
 
 func (r *Request) setUpReq() error {
 
-	if len(r.ArgD) == 0 {
+	if r.ArgD == "" {
 		r.req, r.reqErr = http.NewRequest(r.Meth, r.url, nil)
 	} else {
-		// write if data is not empty
+		r.req, r.reqErr = http.NewRequest(r.Meth, r.url, strings.NewReader(r.ArgD))
 	}
 
 	if r.RnUa {
