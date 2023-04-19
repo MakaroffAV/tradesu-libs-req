@@ -1,10 +1,20 @@
 package req
 
+import "time"
+
+type Response struct {
+	Time int64
+	Code int
+	Body []byte
+}
+
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
 
 // Make HTTP(s)
 // request with GET method
-func (r Request) Get() ([]byte, error) {
+func (r Request) Get() (*Response, error) {
+
+	a := time.Now()
 
 	if err := r.setUpUrl(); err != nil {
 		return nil, err
@@ -26,7 +36,11 @@ func (r Request) Get() ([]byte, error) {
 		return nil, err
 	}
 
-	return r.rbd, nil
+	b := time.Now()
+
+	d := b.Sub(a)
+
+	return &Response{Time: d.Milliseconds(), Code: r.res.StatusCode, Body: r.rbd}, nil
 
 }
 
