@@ -1,25 +1,38 @@
 package req
 
-import "io/ioutil"
+import (
+	"io/ioutil"
+	"net/http"
+	"time"
+)
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
 
-func (r *Request) parseRes() error {
+// Data structure for
+// describing the response from HTTP(s) request
+type Response struct {
+	Code int
+	Time int64
+	Body []byte
+}
 
-	if r.res == nil {
-		return r.resErr
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
+
+// Parsing response body from raw
+// standard http golang lib, status code, calculate request time
+func fetchResFmt(resRaw *http.Response, reqInitTs time.Time) (*Response, error) {
+
+	resBd, resBdErr := ioutil.ReadAll(resRaw.Body)
+	if resBdErr != nil {
+		return nil, resBdErr
 	}
 
-	if r.res.StatusCode != 200 {
-		return r.resErr
-	}
+	return &Response{
+		Body: resBd,
+		Code: resRaw.StatusCode,
+		Time: time.Since(reqInitTs).Milliseconds(),
+	}, nil
 
-	r.rbd, r.rbdErr = ioutil.ReadAll(r.res.Body)
-	if r.rbdErr != nil {
-		return r.rbdErr
-	}
-
-	return nil
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //

@@ -4,78 +4,116 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"strings"
+	"net/url"
+	"time"
 )
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
 
-// Data structure for
-// describing the HTTP(s) request config
-type Request struct {
+func buildUrl(href *string, query *map[string]string) (*string, error) {
 
-	//	init params
-	Href string
-	ArgQ map[string]string
-	PrxU string
-	Meth string
-	ArgH map[string]string
-	ArgD string
-	RnUa bool
+	//	TODO: check if ArgD not passed in struct init
+	if query == nil || len(*query) == 0 {
+		return href, nil
+	} else {
+		queryParams := url.Values{}
+		for k, v := range *query {
+			queryParams.Add(k, v)
+		}
+		queryString := fmt.Sprintf("%s?%s", *href, queryParams.Encode())
+		return &queryString, nil
+	}
 
-	//	calc params
-	url    string
-	urlErr error
-	req    *http.Request
-	reqErr error
-	clt    *http.Client
-	cltErr error
-	res    *http.Response
-	resErr error
-	rbd    []byte
-	rbdErr error
+}
+
+// ------------------------------------------------------------------------ //
+func buildClt(tout int64, prxU string) (*http.Client, error) {
+
+	clt := &http.Client{
+		Timeout: time.Second * 10,
+	}
+
+	if tout != 0 {
+		clt.Timeout = time.Second * time.Duration(tout)
+	}
+
+	if prxU != "" {
+		pUrl, pUrlErr := url.Parse(prxU)
+		if pUrlErr != nil {
+			return nil, pUrlErr
+		}
+		clt.Transport = &http.Transport{Proxy: http.ProxyURL(pUrl)}
+	}
+
+	return clt, nil
+
 }
 
 // ------------------------------------------------------------------------ //
 
-func (r *Request) setUpReq() error {
+func configReq(req Request) (*http.Request, error) {
 
-	if r.ArgD == "" {
-		r.req, r.reqErr = http.NewRequest(r.Meth, r.url, nil)
-	} else {
-		r.req, r.reqErr = http.NewRequest(r.Meth, r.url, strings.NewReader(r.ArgD))
+	url, urlErr := buildUrl(&req.Href, &req.ArgQ)
+	if urlErr != nil {
+		return nil, urlErr
 	}
 
-	if r.RnUa {
-		j := userAgents[rand.Intn(len(userAgents))]
-		fmt.Println(j)
-		print(j)
-		r.req.Header.Add("User-Agent", j)
+	//	TODO: rename r
+	//	TODO: change 3rd argument
+	r, rErr := http.NewRequest(req.Meth, *url, nil)
+	if rErr != nil {
+		return nil, rErr
 	}
 
-	if len(r.ArgH) != 0 {
-		for k, v := range r.ArgH {
-			r.req.Header.Add(k, v)
+	if req.RnUa {
+		r.Header.Add("User-Agent", userAgents[rand.Intn(len(userAgents))])
+	}
+
+	//	TODO: check if ArgD not passed in struct init (still it nil?)
+	//	TODO: if it nill, we cant use len func, change it and change it in buildUrl func
+
+	if req.ArgH == nil || len(req.ArgH) != 0 {
+		for k, v := range req.ArgH {
+			r.Header.Add(k, v)
 		}
 	}
 
-	return nil
+	return r, nil
 
 }
 
 // ------------------------------------------------------------------------ //
 
-func (r *Request) fetchRes() error {
+func fetchReq(req Request, req2 *http.Request) (*http.Response, error) {
 
-	if r.urlErr != nil || r.reqErr != nil || r.cltErr != nil {
-		return nil
+	clt, cltErr := buildClt(req.Tout, req.PrxU)
+	if cltErr != nil {
+		return nil, cltErr
 	}
 
-	r.res, r.resErr = r.clt.Do(r.req)
-	if r.resErr != nil {
-		return nil
+	res, resErr := clt.Do(req2)
+	if resErr != nil {
+		return nil, resErr
 	}
 
-	return nil
+	return res, nil
+}
+
+// ------------------------------------------------------------------------ //
+
+func fetchResRaw(req Request) (*http.Response, error) {
+
+	req2, reqErr := configReq(req)
+	if reqErr != nil {
+		return nil, reqErr
+	}
+
+	resp, respErr := fetchReq(req, req2)
+	if respErr != nil {
+		return nil, respErr
+	}
+
+	return resp, nil
 
 }
 
