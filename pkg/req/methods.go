@@ -1,4 +1,14 @@
+//	closed: true
+//	author:	makarov aleksei
+//	target:	this package stores code that
+//			provides an access point for executing
+//			an HTTP(s) request and returning a formatted server response
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
+
 package req
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
 
 import (
 	"time"
@@ -6,40 +16,19 @@ import (
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
 
-// Data structure for
-// describing the HTTP(s) request
-type Request struct {
-
-	//	init params
-	Href string
-	ArgQ map[string]string
-	PrxU string
-	Meth string
-	ArgH map[string]string
-	ArgD string
-	RnUa bool
-	Tout int64
-}
-
-// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
-
-// Make HTTP(s)
-// request with GET, POST ... method
-func Do(reqCnf Request) (*Response, error) {
+// Make HTTP(s) request
+// with GET, POST method and return response
+// in format Response{Code int, Time int64, Body []byte}
+func (req Request) GetRespFmt() (*Response, error) {
 
 	reqInitTs := time.Now()
 
-	resRaw, resRawErr := fetchResRaw(reqCnf)
-	if resRawErr != nil {
-		return nil, resRawErr
+	respRaw, respRawErr := req.fetchRespRaw()
+	if respRawErr != nil {
+		return nil, respRawErr
 	}
 
-	resFmt, resFmtErr := fetchResFmt(resRaw, reqInitTs)
-	if resFmtErr != nil {
-		return nil, resFmtErr
-	}
-
-	return resFmt, nil
+	return fetchRespFmt(respRaw, reqInitTs)
 
 }
 

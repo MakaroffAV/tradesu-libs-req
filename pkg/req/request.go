@@ -1,119 +1,168 @@
+//	closed: true
+//	author:	makarov aleksei
+//	target:	this package stores code
+//			that describes the process of setting up
+//			request, request's client config, fetching raw response
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
+
 package req
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
 
 import (
 	"fmt"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
 
-func buildUrl(href *string, query *map[string]string) (*string, error) {
+// Data structure for
+// describing the HTTP(s) request
+type Request struct {
 
-	//	TODO: check if ArgD not passed in struct init
-	if query == nil || len(*query) == 0 {
-		return href, nil
-	} else {
-		queryParams := url.Values{}
-		for k, v := range *query {
-			queryParams.Add(k, v)
+	//	init fields
+	Href string
+	ArgQ map[string]string
+	PrxU string
+	Meth string
+	ArgH map[string]string
+	ArgD string
+	Tout int64
+
+	//	calc fields
+	clt *http.Client
+	req *http.Request
+}
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ //
+
+// Generate full url
+// by passed domain and path value
+func (r *Request) getUrl() string {
+
+	switch len(r.ArgQ) {
+	case 0:
+		{
+			return r.Href
 		}
-		queryString := fmt.Sprintf("%s?%s", *href, queryParams.Encode())
-		return &queryString, nil
+	default:
+		{
+			qParams := url.Values{}
+			for k, v := range r.ArgQ {
+				qParams.Add(k, v)
+			}
+			return fmt.Sprintf("%s?%s", r.Href, qParams.Encode())
+		}
 	}
 
 }
 
 // ------------------------------------------------------------------------ //
-func buildClt(tout int64, prxU string) (*http.Client, error) {
 
-	clt := &http.Client{
-		Timeout: time.Second * 10,
-	}
+// Set up client
+// config for HTTP(s) request
+func (r *Request) setClt() error {
 
-	if tout != 0 {
-		clt.Timeout = time.Second * time.Duration(tout)
-	}
+	r.clt = &http.Client{}
 
-	if prxU != "" {
-		pUrl, pUrlErr := url.Parse(prxU)
-		if pUrlErr != nil {
-			return nil, pUrlErr
+	switch r.Tout {
+	case 0:
+		{
+			r.clt.Timeout = time.Second * 10
 		}
-		clt.Transport = &http.Transport{Proxy: http.ProxyURL(pUrl)}
+	default:
+		{
+			r.clt.Timeout = time.Second * time.Duration(r.Tout)
+		}
 	}
 
-	return clt, nil
+	switch r.PrxU {
+	case "":
+		{
+			return nil
+		}
+	default:
+		{
+			prxUrl, prxUrlErr := url.Parse(r.PrxU)
+			if prxUrlErr != nil {
+				return prxUrlErr
+			}
+			r.clt.Transport = &http.Transport{Proxy: http.ProxyURL(prxUrl)}
+		}
+	}
+
+	return nil
 
 }
 
 // ------------------------------------------------------------------------ //
 
-func configReq(req Request) (*http.Request, error) {
+// Set up request
+// config for HTTP(s) request
+func (r *Request) setReq() error {
 
-	url, urlErr := buildUrl(&req.Href, &req.ArgQ)
-	if urlErr != nil {
-		return nil, urlErr
-	}
+	var (
+		req    *http.Request
+		reqErr error
+	)
 
-	//	TODO: rename r
-	//	TODO: change 3rd argument
-	r, rErr := http.NewRequest(req.Meth, *url, nil)
-	if rErr != nil {
-		return nil, rErr
-	}
-
-	if req.RnUa {
-		r.Header.Add("User-Agent", userAgents[rand.Intn(len(userAgents))])
-	}
-
-	//	TODO: check if ArgD not passed in struct init (still it nil?)
-	//	TODO: if it nill, we cant use len func, change it and change it in buildUrl func
-
-	if req.ArgH == nil || len(req.ArgH) != 0 {
-		for k, v := range req.ArgH {
-			r.Header.Add(k, v)
+	switch r.ArgD {
+	case "":
+		{
+			req, reqErr = http.NewRequest(r.Meth, r.getUrl(), nil)
+			if reqErr != nil {
+				return reqErr
+			}
+		}
+	default:
+		{
+			req, reqErr = http.NewRequest(r.Meth, r.getUrl(), strings.NewReader(r.ArgD))
+			if reqErr != nil {
+				return reqErr
+			}
 		}
 	}
 
-	return r, nil
+	switch len(r.ArgH) {
+	case 0:
+		{
+			req.Header.Add("User-Agent", userAgents[rand.Intn(len(userAgents))])
+		}
+	default:
+		{
+			req.Header.Add("User-Agent", userAgents[rand.Intn(len(userAgents))])
+			for k, v := range r.ArgH {
+				req.Header.Add(k, v)
+			}
+		}
+	}
+
+	r.req = req
+
+	return nil
 
 }
 
 // ------------------------------------------------------------------------ //
 
-func fetchReq(req Request, req2 *http.Request) (*http.Response, error) {
+// Building client and request config,
+// fetching HTTP(s) request raw response
+func (r Request) fetchRespRaw() (*http.Response, error) {
 
-	clt, cltErr := buildClt(req.Tout, req.PrxU)
-	if cltErr != nil {
+	if cltErr := r.setClt(); cltErr != nil {
 		return nil, cltErr
 	}
 
-	res, resErr := clt.Do(req2)
-	if resErr != nil {
-		return nil, resErr
-	}
-
-	return res, nil
-}
-
-// ------------------------------------------------------------------------ //
-
-func fetchResRaw(req Request) (*http.Response, error) {
-
-	req2, reqErr := configReq(req)
-	if reqErr != nil {
+	if reqErr := r.setReq(); reqErr != nil {
 		return nil, reqErr
 	}
 
-	resp, respErr := fetchReq(req, req2)
-	if respErr != nil {
-		return nil, respErr
-	}
-
-	return resp, nil
+	return r.clt.Do(r.req)
 
 }
 
